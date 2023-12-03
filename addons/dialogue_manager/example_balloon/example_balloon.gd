@@ -2,9 +2,14 @@ extends CanvasLayer
 
 
 @onready var balloon: Panel = %Balloon
+@onready var character_portrait: TextureRect = %Portrait
 @onready var character_label: RichTextLabel = %CharacterLabel
 @onready var dialogue_label: DialogueLabel = %DialogueLabel
 @onready var responses_menu: DialogueResponsesMenu = %ResponsesMenu
+@export var portraits = [
+	{ "name": "Player", "portrait": load("res://Assets/Player_Portrait.png") }
+	,{ "name": "Zombie", "portrait": load("res://Assets/Zombie_Portrait.png") }
+]
 
 ## The dialogue resource
 var resource: DialogueResource
@@ -32,6 +37,13 @@ var dialogue_line: DialogueLine:
 
 		character_label.visible = not dialogue_line.character.is_empty()
 		character_label.text = tr(dialogue_line.character, "dialogue")
+		var found_p = false
+		for p in portraits:
+			if dialogue_line.character == p["name"]:
+				character_portrait.texture = p["portrait"]
+				found_p = true
+		if not found_p:
+			character_portrait.hide()
 
 		dialogue_label.hide()
 		dialogue_label.dialogue_line = dialogue_line
@@ -63,16 +75,13 @@ var dialogue_line: DialogueLine:
 	get:
 		return dialogue_line
 
-
 func _ready() -> void:
 	balloon.hide()
 	Engine.get_singleton("DialogueManager").mutated.connect(_on_mutated)
 
-
 func _unhandled_input(_event: InputEvent) -> void:
 	# Only the balloon is allowed to handle input while it's showing
 	get_viewport().set_input_as_handled()
-
 
 ## Start some dialogue
 func start(dialogue_resource: DialogueResource, title: String, extra_game_states: Array = []) -> void:
@@ -81,14 +90,11 @@ func start(dialogue_resource: DialogueResource, title: String, extra_game_states
 	resource = dialogue_resource
 	self.dialogue_line = await resource.get_next_dialogue_line(title, temporary_game_states)
 
-
 ## Go to the next line
 func next(next_id: String) -> void:
 	self.dialogue_line = await resource.get_next_dialogue_line(next_id, temporary_game_states)
 
-
 ### Signals
-
 
 func _on_mutated(_mutation: Dictionary) -> void:
 	is_waiting_for_input = false
@@ -99,7 +105,6 @@ func _on_mutated(_mutation: Dictionary) -> void:
 			balloon.hide()
 	)
 
-
 func _on_balloon_gui_input(event: InputEvent) -> void:
 	# If the user clicks on the balloon while it's typing then skip typing
 	if dialogue_label.is_typing and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.is_pressed():
@@ -109,7 +114,7 @@ func _on_balloon_gui_input(event: InputEvent) -> void:
 
 	if not is_waiting_for_input: return
 	if dialogue_line.responses.size() > 0: return
-
+	
 	# When there are no response options the balloon itself is the clickable thing
 	get_viewport().set_input_as_handled()
 
@@ -118,6 +123,18 @@ func _on_balloon_gui_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_accept") and get_viewport().gui_get_focus_owner() == balloon:
 		next(dialogue_line.next_id)
 
-
 func _on_responses_menu_response_selected(response: DialogueResponse) -> void:
 	next(response.next_id)
+	
+	extends CharacterBody3D
+
+const Balloon = preload("res://Dialogue/balloon.tscn")
+var played = false
+
+
+func _unhandled_input(event):
+	if event.is_action_pressed("dialogue") and not played:
+		var balloon = Balloon.instantiate()
+		get_tree().current_scene.add_child(balloon)
+		balloon.start(load("res://Dialogue/Dialogue.dialogue"), "main")
+		played = true

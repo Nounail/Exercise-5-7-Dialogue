@@ -36,7 +36,7 @@ var result_index: int = -1:
 		if results.size() > 0:
 			var r = results[result_index]
 			code_edit.set_caret_line(r[0])
-			code_edit.select(r[0], r[1], r[0], r[1] + r[2])
+			code_edit.select(r[0], r[1], r[0], r[1] + r[3])
 		else:
 			result_index = -1
 			if is_instance_valid(code_edit):
